@@ -27,28 +27,6 @@ func dockerRunInput(input io.Reader, image string, args ...string) ([]byte, erro
 		return []byte{}, errors.New("could not initialize Docker API client")
 	}
 
-	origStdin := os.Stdin
-	defer func() {
-		os.Stdin = origStdin
-	}()
-
-	// write input to a file
-	rawInput, err := ioutil.ReadAll(input)
-	if err != nil {
-		return []byte{}, errors.New("could not read input")
-	}
-	tmpInputFileName := "tmpInput"
-	if err := ioutil.WriteFile(tmpInputFileName, rawInput, 0644); err != nil {
-		return []byte{}, errors.New("could not stage input to file")
-	}
-	inputFile, err := os.Open(tmpInputFileName)
-	if err != nil {
-		return []byte{}, errors.New("could not open input file for container stdin")
-	}
-	defer os.Remove(tmpInputFileName)
-
-	os.Stdin = inputFile
-
 	var resp container.ContainerCreateCreatedBody
 	resp, err = cli.ContainerCreate(context.Background(), &container.Config{
 		Image:        image,
@@ -66,10 +44,9 @@ func dockerRunInput(input io.Reader, image string, args ...string) ([]byte, erro
 				return []byte{}, err
 			}
 			resp, err = cli.ContainerCreate(context.Background(), &container.Config{
-				Image:        image,
-				Cmd:          args,
-				AttachStdout: true,
-				AttachStdin:  true,
+				Image:       image,
+				Cmd:         args,
+				AttachStdin: true,
 			}, &container.HostConfig{
 				AutoRemove: true,
 				LogConfig:  container.LogConfig{Type: "none"},
@@ -83,15 +60,20 @@ func dockerRunInput(input io.Reader, image string, args ...string) ([]byte, erro
 	}
 
 	hijackedResp, err := cli.ContainerAttach(context.Background(), resp.ID, types.ContainerAttachOptions{
-		Stdout: true,
 		Stdin:  true,
+		Stdout: true,
 		Stream: true,
 	})
 	if err != nil {
 		return []byte{}, err
 	}
+	defer hijackedResp.Close()
 
 	if err := cli.ContainerStart(context.Background(), resp.ID, types.ContainerStartOptions{}); err != nil {
+		return []byte{}, err
+	}
+
+	if _, err := io.Copy(hijackedResp.Conn, input); err != nil {
 		return []byte{}, err
 	}
 
@@ -99,7 +81,10 @@ func dockerRunInput(input io.Reader, image string, args ...string) ([]byte, erro
 		return []byte{}, err
 	}
 
-	out, _ := ioutil.ReadAll(hijackedResp.Reader)
+	out, err := ioutil.ReadAll(hijackedResp.Reader)
+	if err != nil {
+		return []byte{}, err
+	}
 	log.Debugf("docker run (input): %s...Done", strings.Join(args, " "))
 	return out, nil
 }
