@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 const defaultNameForStdin = "moby"
@@ -54,7 +54,6 @@ ENTRYPOINT ["/sbin/tini", "--", "/bin/rc.init"]
 
 var additions = map[string]addFun{
 	"docker": func(tw *tar.Writer) error {
-		log.Infof("  Adding Dockerfile")
 		hdr := &tar.Header{
 			Name: "Dockerfile",
 			Mode: 0644,
@@ -71,7 +70,7 @@ var additions = map[string]addFun{
 }
 
 // Process the build arguments and execute build
-func build(args []string) {
+func build(log *logrus.Logger, args []string) {
 	var buildOut outputList
 
 	outputTypes := []string{}
@@ -150,7 +149,7 @@ func build(args []string) {
 		}
 
 	} else {
-		err := validateOutputs(buildOut)
+		err := validateOutputs(log, buildOut)
 		if err != nil {
 			log.Errorf("Error parsing outputs: %v", err)
 			buildCmd.Usage()
@@ -240,7 +239,7 @@ func build(args []string) {
 		buf = new(bytes.Buffer)
 		w = buf
 	}
-	err = buildInternal(moby, w, *buildPull, addition)
+	err = buildInternal(log, moby, w, *buildPull, addition)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -248,7 +247,7 @@ func build(args []string) {
 	if outputFile == nil {
 		image := buf.Bytes()
 		log.Infof("Create outputs:")
-		err = outputs(filepath.Join(*buildDir, name), image, buildOut, size, *buildHyperkit)
+		err = outputs(log, filepath.Join(*buildDir, name), image, buildOut, size, *buildHyperkit)
 		if err != nil {
 			log.Fatalf("Error writing outputs: %v", err)
 		}
@@ -320,14 +319,14 @@ func enforceContentTrust(fullImageName string, config *TrustConfig) bool {
 }
 
 // Perform the actual build process
-func buildInternal(m Moby, w io.Writer, pull bool, addition addFun) error {
+func buildInternal(log Logger, m Moby, w io.Writer, pull bool, addition addFun) error {
 	iw := tar.NewWriter(w)
 
 	if m.Kernel.Image != "" {
 		// get kernel and initrd tarball from container
 		log.Infof("Extract kernel image: %s", m.Kernel.Image)
 		kf := newKernelFilter(iw, m.Kernel.Cmdline)
-		err := ImageTar(m.Kernel.Image, "", kf, enforceContentTrust(m.Kernel.Image, &m.Trust), pull)
+		err := ImageTar(log, m.Kernel.Image, "", kf, enforceContentTrust(m.Kernel.Image, &m.Trust), pull)
 		if err != nil {
 			return fmt.Errorf("Failed to extract kernel image and tarball: %v", err)
 		}
@@ -343,7 +342,7 @@ func buildInternal(m Moby, w io.Writer, pull bool, addition addFun) error {
 	}
 	for _, ii := range m.Init {
 		log.Infof("Process init image: %s", ii)
-		err := ImageTar(ii, "", iw, enforceContentTrust(ii, &m.Trust), pull)
+		err := ImageTar(log, ii, "", iw, enforceContentTrust(ii, &m.Trust), pull)
 		if err != nil {
 			return fmt.Errorf("Failed to build init tarball from %s: %v", ii, err)
 		}
@@ -355,13 +354,13 @@ func buildInternal(m Moby, w io.Writer, pull bool, addition addFun) error {
 	for i, image := range m.Onboot {
 		log.Infof("  Create OCI config for %s", image.Image)
 		useTrust := enforceContentTrust(image.Image, &m.Trust)
-		config, err := ConfigToOCI(image, useTrust)
+		config, err := ConfigToOCI(log, image, useTrust)
 		if err != nil {
 			return fmt.Errorf("Failed to create config.json for %s: %v", image.Image, err)
 		}
 		so := fmt.Sprintf("%03d", i)
 		path := "containers/onboot/" + so + "-" + image.Name
-		err = ImageBundle(path, image.Image, config, iw, useTrust, pull)
+		err = ImageBundle(log, path, image.Image, config, iw, useTrust, pull)
 		if err != nil {
 			return fmt.Errorf("Failed to extract root filesystem for %s: %v", image.Image, err)
 		}
@@ -373,19 +372,19 @@ func buildInternal(m Moby, w io.Writer, pull bool, addition addFun) error {
 	for _, image := range m.Services {
 		log.Infof("  Create OCI config for %s", image.Image)
 		useTrust := enforceContentTrust(image.Image, &m.Trust)
-		config, err := ConfigToOCI(image, useTrust)
+		config, err := ConfigToOCI(log, image, useTrust)
 		if err != nil {
 			return fmt.Errorf("Failed to create config.json for %s: %v", image.Image, err)
 		}
 		path := "containers/services/" + image.Name
-		err = ImageBundle(path, image.Image, config, iw, useTrust, pull)
+		err = ImageBundle(log, path, image.Image, config, iw, useTrust, pull)
 		if err != nil {
 			return fmt.Errorf("Failed to extract root filesystem for %s: %v", image.Image, err)
 		}
 	}
 
 	// add files
-	err := filesystem(m, iw)
+	err := filesystem(log, m, iw)
 	if err != nil {
 		return fmt.Errorf("failed to add filesystem parts: %v", err)
 	}
@@ -533,7 +532,7 @@ func tarAppend(iw *tar.Writer, tr *tar.Reader) error {
 	return nil
 }
 
-func filesystem(m Moby, tw *tar.Writer) error {
+func filesystem(log Logger, m Moby, tw *tar.Writer) error {
 	// TODO also include the files added in other parts of the build
 	var addedFiles = map[string]bool{}
 
