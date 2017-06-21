@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -155,8 +154,6 @@ func AppendConfig(m0, m1 Moby) Moby {
 
 // NewImage validates an parses yaml or json for a MobyImage
 func NewImage(config []byte) (MobyImage, error) {
-	log.Debugf("Reading label config: %s", string(config))
-
 	mi := MobyImage{}
 
 	// Parse raw yaml
@@ -220,7 +217,7 @@ func NewImage(config []byte) (MobyImage, error) {
 }
 
 // ConfigToOCI converts a config specification to an OCI config file
-func ConfigToOCI(image MobyImage, trust bool) ([]byte, error) {
+func ConfigToOCI(log Logger, image MobyImage, trust bool) ([]byte, error) {
 
 	// TODO pass through same docker client to all functions
 	cli, err := dockerClient()
@@ -228,7 +225,7 @@ func ConfigToOCI(image MobyImage, trust bool) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	inspect, err := dockerInspectImage(cli, image.Image, trust)
+	inspect, err := dockerInspectImage(log, cli, image.Image, trust)
 	if err != nil {
 		return []byte{}, err
 	}

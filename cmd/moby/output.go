@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/moby/tool/src/initrd"
 )
 
@@ -19,94 +18,94 @@ const (
 	vmdk = "linuxkit/mkimage-vmdk:182b541474ca7965c8e8f987389b651859f760da@sha256:99638c5ddb17614f54c6b8e11bd9d49d1dea9d837f38e0f6c1a5f451085d449b"
 )
 
-var outFuns = map[string]func(string, []byte, int, bool) error{
-	"kernel+initrd": func(base string, image []byte, size int, hyperkit bool) error {
+var outFuns = map[string]func(Logger, string, []byte, int, bool) error{
+	"kernel+initrd": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputKernelInitrd(base, kernel, initrd, cmdline)
+		err = outputKernelInitrd(log, base, kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing kernel+initrd output: %v", err)
 		}
 		return nil
 	},
-	"iso-bios": func(base string, image []byte, size int, hyperkit bool) error {
+	"iso-bios": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputImg(bios, base+".iso", kernel, initrd, cmdline)
+		err = outputImg(log, bios, base+".iso", kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing iso-bios output: %v", err)
 		}
 		return nil
 	},
-	"iso-efi": func(base string, image []byte, size int, hyperkit bool) error {
+	"iso-efi": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputImg(efi, base+"-efi.iso", kernel, initrd, cmdline)
+		err = outputImg(log, efi, base+"-efi.iso", kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing iso-efi output: %v", err)
 		}
 		return nil
 	},
-	"raw": func(base string, image []byte, size int, hyperkit bool) error {
+	"raw": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		filename := base + ".raw"
 		log.Infof("  %s", filename)
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputLinuxKit("raw", filename, kernel, initrd, cmdline, size, hyperkit)
+		err = outputLinuxKit(log, "raw", filename, kernel, initrd, cmdline, size, hyperkit)
 		if err != nil {
 			return fmt.Errorf("Error writing raw output: %v", err)
 		}
 		return nil
 	},
-	"gcp": func(base string, image []byte, size int, hyperkit bool) error {
+	"gcp": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputImg(gcp, base+".img.tar.gz", kernel, initrd, cmdline)
+		err = outputImg(log, gcp, base+".img.tar.gz", kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing gcp output: %v", err)
 		}
 		return nil
 	},
-	"qcow2": func(base string, image []byte, size int, hyperkit bool) error {
+	"qcow2": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		filename := base + ".qcow2"
 		log.Infof("  %s", filename)
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputLinuxKit("qcow2", filename, kernel, initrd, cmdline, size, hyperkit)
+		err = outputLinuxKit(log, "qcow2", filename, kernel, initrd, cmdline, size, hyperkit)
 		if err != nil {
 			return fmt.Errorf("Error writing qcow2 output: %v", err)
 		}
 		return nil
 	},
-	"vhd": func(base string, image []byte, size int, hyperkit bool) error {
+	"vhd": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputImg(vhd, base+".vhd", kernel, initrd, cmdline)
+		err = outputImg(log, vhd, base+".vhd", kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing vhd output: %v", err)
 		}
 		return nil
 	},
-	"vmdk": func(base string, image []byte, size int, hyperkit bool) error {
+	"vmdk": func(log Logger, base string, image []byte, size int, hyperkit bool) error {
 		kernel, initrd, cmdline, err := tarToInitrd(image)
 		if err != nil {
 			return fmt.Errorf("Error converting to initrd: %v", err)
 		}
-		err = outputImg(vmdk, base+".vmdk", kernel, initrd, cmdline)
+		err = outputImg(log, vmdk, base+".vmdk", kernel, initrd, cmdline)
 		if err != nil {
 			return fmt.Errorf("Error writing vmdk output: %v", err)
 		}
@@ -119,24 +118,22 @@ var prereq = map[string]string{
 	"qcow2": "mkimage",
 }
 
-func ensurePrereq(out string) error {
+func ensurePrereq(log Logger, out string) error {
 	var err error
 	p := prereq[out]
 	if p != "" {
-		err = ensureLinuxkitImage(p)
+		err = ensureLinuxkitImage(log, p)
 	}
 	return err
 }
 
-func validateOutputs(out outputList) error {
-	log.Debugf("validating output: %v", out)
-
+func validateOutputs(log Logger, out outputList) error {
 	for _, o := range out {
 		f := outFuns[o]
 		if f == nil {
 			return fmt.Errorf("Unknown output type %s", o)
 		}
-		err := ensurePrereq(o)
+		err := ensurePrereq(log, o)
 		if err != nil {
 			return fmt.Errorf("Failed to set up output type %s: %v", o, err)
 		}
@@ -145,16 +142,16 @@ func validateOutputs(out outputList) error {
 	return nil
 }
 
-func outputs(base string, image []byte, out outputList, size int, hyperkit bool) error {
+func outputs(log Logger, base string, image []byte, out outputList, size int, hyperkit bool) error {
 	log.Debugf("output: %v %s", out, base)
 
-	err := validateOutputs(out)
+	err := validateOutputs(log, out)
 	if err != nil {
 		return err
 	}
 	for _, o := range out {
 		f := outFuns[o]
-		err := f(base, image, size, hyperkit)
+		err := f(log, base, image, size, hyperkit)
 		if err != nil {
 			return err
 		}
@@ -225,14 +222,14 @@ func tarInitrdKernel(kernel, initrd []byte, cmdline string) (*bytes.Buffer, erro
 	return buf, nil
 }
 
-func outputImg(image, filename string, kernel []byte, initrd []byte, cmdline string) error {
+func outputImg(log Logger, image, filename string, kernel []byte, initrd []byte, cmdline string) error {
 	log.Debugf("output img: %s %s", image, filename)
 	log.Infof("  %s", filename)
 	buf, err := tarInitrdKernel(kernel, initrd, cmdline)
 	if err != nil {
 		return err
 	}
-	img, err := dockerRunInput(buf, image, cmdline)
+	img, err := dockerRun(log, buf, image, cmdline)
 	if err != nil {
 		return err
 	}
@@ -244,7 +241,7 @@ func outputImg(image, filename string, kernel []byte, initrd []byte, cmdline str
 }
 
 // this should replace the other version for types that can specify a size
-func outputImgSize(image, filename string, kernel []byte, initrd []byte, cmdline string, size int) error {
+func outputImgSize(log Logger, image, filename string, kernel []byte, initrd []byte, cmdline string, size int) error {
 	log.Debugf("output img: %s %s size %d", image, filename, size)
 	log.Infof("  %s", filename)
 	buf, err := tarInitrdKernel(kernel, initrd, cmdline)
@@ -253,9 +250,9 @@ func outputImgSize(image, filename string, kernel []byte, initrd []byte, cmdline
 	}
 	var img []byte
 	if size == 0 {
-		img, err = dockerRunInput(buf, image)
+		img, err = dockerRun(log, buf, image)
 	} else {
-		img, err = dockerRunInput(buf, image, fmt.Sprintf("%dM", size))
+		img, err = dockerRun(log, buf, image, fmt.Sprintf("%dM", size))
 	}
 	if err != nil {
 		return err
@@ -267,7 +264,7 @@ func outputImgSize(image, filename string, kernel []byte, initrd []byte, cmdline
 	return nil
 }
 
-func outputKernelInitrd(base string, kernel []byte, initrd []byte, cmdline string) error {
+func outputKernelInitrd(log Logger, base string, kernel []byte, initrd []byte, cmdline string) error {
 	log.Debugf("output kernel/initrd: %s %s", base, cmdline)
 	log.Infof("  %s %s %s", base+"-kernel", base+"-initrd.img", base+"-cmdline")
 	err := ioutil.WriteFile(base+"-initrd.img", initrd, os.FileMode(0644))

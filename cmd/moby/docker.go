@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -21,7 +20,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func dockerRunInput(input io.Reader, args ...string) ([]byte, error) {
+func dockerRun(log Logger, input io.Reader, args ...string) ([]byte, error) {
 	log.Debugf("docker run (input): %s", strings.Join(args, " "))
 	docker, err := exec.LookPath("docker")
 	if err != nil {
@@ -65,7 +64,7 @@ func dockerRunInput(input io.Reader, args ...string) ([]byte, error) {
 	return stdout, nil
 }
 
-func dockerCreate(image string) (string, error) {
+func dockerCreate(log Logger, image string) (string, error) {
 	log.Debugf("docker create: %s", image)
 	cli, err := dockerClient()
 	if err != nil {
@@ -85,7 +84,7 @@ func dockerCreate(image string) (string, error) {
 	return respBody.ID, nil
 }
 
-func dockerExport(container string) ([]byte, error) {
+func dockerExport(log Logger, container string) ([]byte, error) {
 	log.Debugf("docker export: %s", container)
 	cli, err := dockerClient()
 	if err != nil {
@@ -106,7 +105,7 @@ func dockerExport(container string) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-func dockerRm(container string) error {
+func dockerRm(log Logger, container string) error {
 	log.Debugf("docker rm: %s", container)
 	cli, err := dockerClient()
 	if err != nil {
@@ -119,7 +118,7 @@ func dockerRm(container string) error {
 	return nil
 }
 
-func dockerPull(image string, forcePull, trustedPull bool) error {
+func dockerPull(log Logger, image string, forcePull, trustedPull bool) error {
 	log.Debugf("docker pull: %s", image)
 	cli, err := dockerClient()
 	if err != nil {
@@ -128,7 +127,7 @@ func dockerPull(image string, forcePull, trustedPull bool) error {
 
 	if trustedPull {
 		log.Debugf("pulling %s with content trust", image)
-		trustedImg, err := TrustedReference(image)
+		trustedImg, err := TrustedReference(log, image)
 		if err != nil {
 			return fmt.Errorf("Trusted pull for %s failed: %v", image, err)
 		}
@@ -175,13 +174,13 @@ func dockerClient() (*client.Client, error) {
 	return client.NewEnvClient()
 }
 
-func dockerInspectImage(cli *client.Client, image string, trustedPull bool) (types.ImageInspect, error) {
+func dockerInspectImage(log Logger, cli *client.Client, image string, trustedPull bool) (types.ImageInspect, error) {
 	log.Debugf("docker inspect image: %s", image)
 
 	inspect, _, err := cli.ImageInspectWithRaw(context.Background(), image)
 	if err != nil {
 		if client.IsErrImageNotFound(err) {
-			pullErr := dockerPull(image, true, trustedPull)
+			pullErr := dockerPull(log, image, true, trustedPull)
 			if pullErr != nil {
 				return types.ImageInspect{}, pullErr
 			}

@@ -7,8 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 type tarWriter interface {
@@ -75,7 +73,7 @@ func tarPrefix(path string, tw tarWriter) error {
 }
 
 // ImageTar takes a Docker image and outputs it to a tar stream
-func ImageTar(image, prefix string, tw tarWriter, trust bool, pull bool) error {
+func ImageTar(log Logger, image, prefix string, tw tarWriter, trust bool, pull bool) error {
 	log.Debugf("image tar: %s %s", image, prefix)
 	if prefix != "" && prefix[len(prefix)-1] != byte('/') {
 		return fmt.Errorf("prefix does not end with /: %s", prefix)
@@ -87,20 +85,20 @@ func ImageTar(image, prefix string, tw tarWriter, trust bool, pull bool) error {
 	}
 
 	if pull || trust {
-		err := dockerPull(image, pull, trust)
+		err := dockerPull(log, image, pull, trust)
 		if err != nil {
 			return fmt.Errorf("Could not pull image %s: %v", image, err)
 		}
 	}
-	container, err := dockerCreate(image)
+	container, err := dockerCreate(log, image)
 	if err != nil {
 		// if the image wasn't found, pull it down.  Bail on other errors.
 		if strings.Contains(err.Error(), "No such image") {
-			err := dockerPull(image, true, trust)
+			err := dockerPull(log, image, true, trust)
 			if err != nil {
 				return fmt.Errorf("Could not pull image %s: %v", image, err)
 			}
-			container, err = dockerCreate(image)
+			container, err = dockerCreate(log, image)
 			if err != nil {
 				return fmt.Errorf("Failed to docker create image %s: %v", image, err)
 			}
@@ -108,11 +106,11 @@ func ImageTar(image, prefix string, tw tarWriter, trust bool, pull bool) error {
 			return fmt.Errorf("Failed to create docker image %s: %v", image, err)
 		}
 	}
-	contents, err := dockerExport(container)
+	contents, err := dockerExport(log, container)
 	if err != nil {
 		return fmt.Errorf("Failed to docker export container from container %s: %v", container, err)
 	}
-	err = dockerRm(container)
+	err = dockerRm(log, container)
 	if err != nil {
 		return fmt.Errorf("Failed to docker rm container %s: %v", container, err)
 	}
@@ -169,9 +167,9 @@ func ImageTar(image, prefix string, tw tarWriter, trust bool, pull bool) error {
 }
 
 // ImageBundle produces an OCI bundle at the given path in a tarball, given an image and a config.json
-func ImageBundle(path string, image string, config []byte, tw tarWriter, trust bool, pull bool) error {
+func ImageBundle(log Logger, path string, image string, config []byte, tw tarWriter, trust bool, pull bool) error {
 	log.Debugf("image bundle: %s %s cfg: %s", path, image, string(config))
-	err := ImageTar(image, path+"/rootfs/", tw, trust, pull)
+	err := ImageTar(log, image, path+"/rootfs/", tw, trust, pull)
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -27,7 +26,7 @@ import (
 )
 
 // TrustedReference parses an image string, and does a notary lookup to verify and retrieve the signed digest reference
-func TrustedReference(image string) (reference.Reference, error) {
+func TrustedReference(log Logger, image string) (reference.Reference, error) {
 	ref, err := reference.ParseAnyReference(image)
 	if err != nil {
 		return nil, err

@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 var linuxkitYaml = map[string]string{"mkimage": `
@@ -37,7 +35,7 @@ func imageFilename(name string) string {
 	return filepath.Join(MobyDir, "linuxkit", name+"-"+fmt.Sprintf("%x", hash))
 }
 
-func ensureLinuxkitImage(name string) error {
+func ensureLinuxkitImage(log Logger, name string) error {
 	filename := imageFilename(name)
 	_, err1 := os.Stat(filename + "-kernel")
 	_, err2 := os.Stat(filename + "-initrd.img")
@@ -60,7 +58,7 @@ func ensureLinuxkitImage(name string) error {
 	}
 	// TODO pass through --pull to here
 	buf := new(bytes.Buffer)
-	buildInternal(m, buf, false, nil)
+	buildInternal(log, m, buf, false, nil)
 	image := buf.Bytes()
 	kernel, initrd, cmdline, err := tarToInitrd(image)
 	if err != nil {
@@ -90,7 +88,7 @@ func writeKernelInitrd(filename string, kernel []byte, initrd []byte, cmdline st
 	return nil
 }
 
-func outputLinuxKit(format string, filename string, kernel []byte, initrd []byte, cmdline string, size int, hyperkit bool) error {
+func outputLinuxKit(log Logger, format string, filename string, kernel []byte, initrd []byte, cmdline string, size int, hyperkit bool) error {
 	log.Debugf("output linuxkit generated img: %s %s size %d", format, filename, size)
 
 	tmp, err := ioutil.TempDir(filepath.Join(MobyDir, "tmp"), "moby")

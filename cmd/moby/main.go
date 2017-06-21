@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 var (
-	defaultLogFormatter = &log.TextFormatter{}
+	defaultLogFormatter = &logrus.TextFormatter{}
 
 	// Version is the human-readable version
 	Version = "unknown"
@@ -27,8 +27,8 @@ var (
 type infoFormatter struct {
 }
 
-func (f *infoFormatter) Format(entry *log.Entry) ([]byte, error) {
-	if entry.Level == log.InfoLevel {
+func (f *infoFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	if entry.Level == logrus.InfoLevel {
 		return append([]byte(entry.Message), '\n'), nil
 	}
 	return defaultLogFormatter.Format(entry)
@@ -67,8 +67,11 @@ func main() {
 	flagConfigDir := flag.String("config", defaultMobyConfigDir(), "Configuration directory")
 
 	// Set up logging
-	log.SetFormatter(new(infoFormatter))
-	log.SetLevel(log.InfoLevel)
+	var log = &logrus.Logger{
+		Out:       os.Stderr,
+		Formatter: new(infoFormatter),
+		Level:     logrus.InfoLevel,
+	}
 
 	flag.Parse()
 	if *flagQuiet && *flagVerbose {
@@ -76,12 +79,12 @@ func main() {
 		os.Exit(1)
 	}
 	if *flagQuiet {
-		log.SetLevel(log.ErrorLevel)
+		log.Level = logrus.ErrorLevel
 	}
 	if *flagVerbose {
 		// Switch back to the standard formatter
-		log.SetFormatter(defaultLogFormatter)
-		log.SetLevel(log.DebugLevel)
+		log.Formatter = defaultLogFormatter
+		log.Level = logrus.DebugLevel
 	}
 
 	args := flag.Args()
@@ -104,7 +107,7 @@ func main() {
 
 	switch args[0] {
 	case "build":
-		build(args[1:])
+		build(log, args[1:])
 	case "version":
 		version()
 	case "help":
