@@ -36,6 +36,10 @@ type Moby struct {
 		Optional  bool
 		Mode      string
 	}
+	Overrides []struct {
+		Source     string
+		Substitute string
+	}
 }
 
 // TrustConfig is the type of a content trust config
@@ -149,6 +153,7 @@ func AppendConfig(m0, m1 Moby) Moby {
 	moby.Files = append(moby.Files, m1.Files...)
 	moby.Trust.Image = append(moby.Trust.Image, m1.Trust.Image...)
 	moby.Trust.Org = append(moby.Trust.Org, m1.Trust.Org...)
+	moby.Overrides = append(moby.Overrides, m1.Overrides...)
 
 	return moby
 }
@@ -775,4 +780,35 @@ func ConfigInspectToOCI(yaml Image, inspect types.ImageInspect) (specs.Spec, err
 	}
 
 	return oci, nil
+}
+
+// ApplyOverride applies an override to a given config
+func ApplyOverride(config Moby) Moby {
+	for _, o := range config.Overrides {
+		if strings.Contains(config.Kernel.Image, o.Source) {
+			log.Debugf("Replacing kernel image with %s", o.Substitute)
+			config.Kernel.Image = o.Substitute
+		}
+
+		for i, img := range config.Init {
+			if strings.Contains(img, o.Source) {
+				log.Debugf("Replacing init image with %s", o.Substitute)
+				config.Init[i] = o.Substitute
+			}
+		}
+		for i, img := range config.Onboot {
+			if strings.Contains(img.Image, o.Source) {
+				log.Debugf("Replacing onboot image with %s", o.Substitute)
+				config.Onboot[i].Image = o.Substitute
+			}
+		}
+
+		for i, img := range config.Services {
+			if strings.Contains(img.Image, o.Source) {
+				log.Debugf("Replacing services image with %s", o.Substitute)
+				config.Services[i].Image = o.Substitute
+			}
+		}
+	}
+	return config
 }
