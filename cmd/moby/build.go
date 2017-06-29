@@ -201,6 +201,7 @@ func build(args []string) {
 		}
 		m = moby.AppendConfig(m, c)
 	}
+	m = moby.ApplyOverride(m)
 
 	if *buildDisableTrust {
 		log.Debugf("Disabling content trust checks for this build")

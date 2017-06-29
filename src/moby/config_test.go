@@ -73,3 +73,33 @@ func TestInvalidCap(t *testing.T) {
 		t.Error("expected error, got valid OCI config")
 	}
 }
+
+func TestApplyOverride(t *testing.T) {
+	config, err := NewConfig([]byte(`
+kernel:
+  image: "foo/bar:foo"
+init:
+- foo/bar:foo
+onboot:
+  - name: foo
+    image: foo/bar:foo
+overrides:
+  - source: foo/bar
+    substitute: foo/bar:quux
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := ApplyOverride(config)
+
+	if c.Kernel.Image != "foo/bar:quux" {
+		t.Fatalf("No override!")
+	}
+	if c.Init[0] != "foo/bar:quux" {
+		t.Fatalf("No override1!")
+	}
+	if c.Onboot[0].Image != "foo/bar:quux" {
+		t.Fatalf("No override2!")
+	}
+}

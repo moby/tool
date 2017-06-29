@@ -100,6 +100,17 @@ var schema = string(`
     "images": {
         "type": "array",
         "items": { "$ref": "#/definitions/image" }
+    },
+    "override" : {
+        "type": "object",
+        "properties": {
+            "destination": { "type": "string" },
+            "source": { "type": "string" }
+        }
+    },
+    "overrides": {
+        "type": "array",
+	"items": { "$ref": "#/definitions/override" }
     }
   },
   "properties": {
@@ -108,7 +119,8 @@ var schema = string(`
     "onboot": { "$ref": "#/definitions/images" },
     "services": { "$ref": "#/definitions/images" },
     "trust": { "$ref": "#/definitions/trust" },
-    "files": { "$ref": "#/definitions/files" }
+    "files": { "$ref": "#/definitions/files" },
+    "overrides": { "$ref": "#/definitions/overrides" }
   }
 }
 `)
