@@ -139,6 +139,9 @@ func outputLinuxKit(format string, filename string, kernel []byte, initrd []byte
 	}
 	log.Debugf("run %s: %v", linuxkit, commandLine)
 	cmd := exec.Command(linuxkit, commandLine...)
+	if log.GetLevel() == log.DebugLevel {
+		cmd.Stdout = os.Stdout
+	}
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
