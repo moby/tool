@@ -256,6 +256,7 @@ var schema = string(`
         "ambient": { "$ref": "#/definitions/strings" },
         "mounts": { "$ref": "#/definitions/mounts" },
         "binds": { "$ref": "#/definitions/strings" },
+        "user-binds": { "$ref": "#/definitions/strings" },
         "tmpfs": { "$ref": "#/definitions/strings" },
         "command": { "$ref": "#/definitions/strings" },
         "env": { "$ref": "#/definitions/strings" },
