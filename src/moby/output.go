@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	bios       = "linuxkit/mkimage-iso-bios:165b051322578cb0c2a4f16253b20f7d2797a502"
-	efi        = "linuxkit/mkimage-iso-efi:dc12bc6827f84334b02d1c70599acf80b840c126"
-	gcp        = "linuxkit/mkimage-gcp:d1883809d212ce048f60beb0308a4d2b14c256af"
-	vhd        = "linuxkit/mkimage-vhd:2a31f2bc91c1d247160570bd17868075e6c0009a"
-	vmdk       = "linuxkit/mkimage-vmdk:df02a4fabd87a82209fbbacebde58c4440d2daf0"
-	dynamicvhd = "linuxkit/mkimage-dynamic-vhd:8553167d10c3e8d8603b2566d01bdc0cf5908fa5"
-	rpi3       = "linuxkit/mkimage-rpi3:0735656fff247ca978135e3aeb62864adc612180"
+	bios       = "linuxkit/mkimage-iso-bios:165b051322578cb0c2a4f16253b20f7d2797a502@sha256:2c06478b389e381051b5c95d51565488133fcf20f217e232c00149f3b997ac7a"
+	efi        = "linuxkit/mkimage-iso-efi:dc12bc6827f84334b02d1c70599acf80b840c126@sha256:2a3ae4b83ec548a98ef28f3092c55fafbad198b299491b74f068b31a0fc849f4"
+	gcp        = "linuxkit/mkimage-gcp:d1883809d212ce048f60beb0308a4d2b14c256af@sha256:d9571a557e4b82a944f12082cd50987d3726385b5458846cbae89ea9bd694c85"
+	vhd        = "linuxkit/mkimage-vhd:2a31f2bc91c1d247160570bd17868075e6c0009a@sha256:2035d0f486f4839848b4268b029e3a79cb353a8f745a42589923b3f923626597"
+	vmdk       = "linuxkit/mkimage-vmdk:df02a4fabd87a82209fbbacebde58c4440d2daf0@sha256:70ac78291214f4ef1dbe229b9042d7cff4106a1f1f92249ae8101d3b53dfa9e7"
+	dynamicvhd = "linuxkit/mkimage-dynamic-vhd:8553167d10c3e8d8603b2566d01bdc0cf5908fa5@sha256:3f613029c461a95e850b8363a76bd31e0a86a6a4c2291c23448c68782cbb088e"
+	rpi3       = "linuxkit/mkimage-rpi3:0735656fff247ca978135e3aeb62864adc612180@sha256:8e50588931707cb4bf8738f110cef7f062fe8c2f164fb05f5b96c4a408826d82"
 )
 
 var outFuns = map[string]func(string, []byte, int) error{
