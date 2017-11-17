@@ -68,6 +68,7 @@ type Image struct {
 	Ambient           *[]string               `yaml:"ambient" json:"ambient,omitempty"`
 	Mounts            *[]specs.Mount          `yaml:"mounts" json:"mounts,omitempty"`
 	Binds             *[]string               `yaml:"binds" json:"binds,omitempty"`
+	UserBinds         *[]string               `yaml:"user-binds" json:"user-binds,omitempty"`
 	Tmpfs             *[]string               `yaml:"tmpfs" json:"tmpfs,omitempty"`
 	Command           *[]string               `yaml:"command" json:"command,omitempty"`
 	Env               *[]string               `yaml:"env" json:"env,omitempty"`
@@ -296,6 +297,14 @@ func AppendConfig(m0, m1 Moby) (Moby, error) {
 	moby.initRefs = append(moby.initRefs, m1.initRefs...)
 
 	return moby, uniqueServices(moby)
+}
+
+// AppendStringSlicePointer appends a possibly nil string slice pointer to a string slice
+func AppendStringSlicePointer(s []string, p *[]string) []string {
+	if p == nil {
+		return s
+	}
+	return append(s, *p...)
 }
 
 // NewImage validates an parses yaml or json for a Image
@@ -712,6 +721,10 @@ func ConfigInspectToOCI(yaml *Image, inspect types.ImageInspect, idMap map[strin
 		}
 	}
 
+	if label.UserBinds != nil && len(*label.UserBinds) != 0 {
+		return oci, runtime, fmt.Errorf("user-binds in image label is not allowed")
+	}
+
 	// command, env and cwd can be taken from image, as they are commonly specified in Dockerfile
 
 	// TODO we could handle entrypoint and cmd independently more like Docker
@@ -759,7 +772,7 @@ func ConfigInspectToOCI(yaml *Image, inspect types.ImageInspect, idMap map[strin
 		}
 		mounts[dest] = specs.Mount{Destination: dest, Type: "tmpfs", Source: "tmpfs", Options: opts}
 	}
-	for _, b := range assignStrings(label.Binds, yaml.Binds) {
+	for _, b := range AppendStringSlicePointer(assignStrings(label.Binds, yaml.Binds), yaml.UserBinds) {
 		parts := strings.Split(b, ":")
 		if len(parts) < 2 {
 			return oci, runtime, fmt.Errorf("Cannot parse bind, missing ':': %s", b)
