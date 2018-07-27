@@ -178,6 +178,7 @@ func ImageTar(ref *reference.Spec, prefix string, tw tarWriter, trust bool, pull
 		} else {
 			log.Debugf("image tar: %s %s add %s", ref, prefix, hdr.Name)
 			hdr.Name = prefix + hdr.Name
+			hdr.Format = tar.FormatPAX
 			if hdr.Typeflag == tar.TypeLink {
 				// hard links are referenced by full path so need to be adjusted
 				hdr.Linkname = prefix + hdr.Linkname
